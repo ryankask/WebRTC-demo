@@ -1,9 +1,28 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta charset="utf-8">
     <title>WebRTC Test</title>
+    <link rel="stylesheet" type="text/css" href="./css/style.css">
   </head>
   <body>
     <h1>WebRTC Test</h1>
+    <div role="main">
+      <div class="left">
+        <h2>Audio Stream 1</h2>
+        <audio id="audio-1" autoplay muted="true"></audio>
+      </div>
+      <div class="right">
+        <h2>Audio Stream 2</h2>
+        <audio id="audio-2" autoplay></audio>
+      </div>
+      <div class="controls">
+        <button id="start">Start</button>
+        <button id="call">Call</button>
+        <button id="hangup">Hang Up</button>
+      </div>
+      <div class="left">
+    </div>
+    <script src="./js/rtc.js"></script>
   </body>
 </html>

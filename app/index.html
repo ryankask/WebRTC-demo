@@ -8,20 +8,14 @@
   <body>
     <h1>WebRTC Test</h1>
     <div role="main">
-      <div class="left">
-        <h2>Audio Stream 1</h2>
-        <audio id="audio-1" autoplay muted="true"></audio>
-      </div>
-      <div class="right">
-        <h2>Audio Stream 2</h2>
-        <audio id="audio-2" autoplay></audio>
-      </div>
+      <h2>Audio Stream 1</h2>
+      <audio id="in-audio" autoplay muted="true"></audio>
+      <audio id="out-audio" autoplay muted="false"></audio>
       <div class="controls">
         <button id="start">Start</button>
         <button id="call">Call</button>
         <button id="hangup">Hang Up</button>
       </div>
-      <div class="left">
     </div>
     <script src="./js/rtc.js"></script>
   </body>

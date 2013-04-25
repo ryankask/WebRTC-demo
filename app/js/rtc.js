@@ -1,18 +1,23 @@
+/* jshint globalstrict: true, browser: true */
+/* global console */
 'use strict';
 
-var audio1 = document.getElementById('audio-1'),
-    audio2 = document.getElementById('audio-2'),
+var inAudio = document.getElementById('in-audio'),
+    outAudio = document.getElementById('out-audio'),
     start = document.getElementById('start'),
     call = document.getElementById('call'),
     hangup = document.getElementById('hangup'),
-    pc1,
-    pc2,
+    pc,
     localStream,
-    sdpConstraints = {mandatory: {OfferToReceiveAudio: true}};
+    remoteStream,
+    started = false,
+    sdpConstraints = {mandatory: {OfferToReceiveAudio: true}},
+    signalSocket = new WebSocket('ws://localhost:8090');
 
-call.disabled = true;
-hangup.disabled = true;
-
+function init() {
+  call.disabled = true;
+  hangup.disabled = true;
+}
 
 function trace(text) {
   // This function is used for logging.
@@ -22,86 +27,151 @@ function trace(text) {
   console.log((performance.now() / 1000).toFixed(3) + ": " + text);
 }
 
+//
+// Signalling comms
+//
+
+function sendMessage(message) {
+  var msgString = JSON.stringify(message);
+  console.log('Sending message: ' + msgString);
+  signalSocket.send(msgString);
+}
+
+signalSocket.onmessage = function(event) {
+  var msg = JSON.parse(event.data),
+      candidate;
+  console.log('got message: ' + msg);
+
+  if (msg.type === 'offer') {
+    if (!started) {
+      maybeStart();
+    }
+    pc.setRemoteDescription(new RTCSessionDescription(msg));
+    trace('Sending answer to peer.');
+    pc.createAnswer(setLocalAndSendMessage, null, sdpConstraints);
+  } else if (msg.type === 'answer' && started) {
+    pc.setRemoteDescription(new RTCSessionDescription(msg);
+  } else if (msg.type === 'candidate' && started) {
+    pc.addIceCandidate(new RTCIceCandidate({
+      sdpMLineIndex: msg.label,
+      candidate: msg.candidate
+    }));
+  } else if (msg.type === 'bye' && started) {
+    setTimeout(function() { outAudio.src = ''; }, 500);
+    stop();
+  }
+};
+
+//
+// WebRTC
+//
+
 function gotStream(stream) {
   trace('Received local stream.');
-  audio1.src = stream;
-  audio1.play();
-  localStream = stream;
+  inAudio.src = stream;
+  inAudio.play();
+  localStream = URL.createObjectURL(stream);
   call.disabled = false;
 }
+
+function maybeStart(isInitiator) {
+  if (!started && localStream && signalSocket) {
+    call.disabled = true;
+    hangup.disabled = false;
+    trace('Creating PeerConnection');
+    createPeerConnection();
+
+    trace('Adding local stream');
+    pc.addStream(localStream);
+    started = true;
+
+    if (isInitiator) {
+      pc.createOffer(setLocalAndSendMessage, null, sdpConstraints);
+    }
+}
+
+function stop() {
+  started = false;
+  pc.close();
+  pc = null;
+}
+
+function setLocalAndSendMessage(sessionDescription) {
+  pc.setLocalDescription(sessionDescription);
+  sendMessage(sessionDescription);
+}
+
+// Peer connection
+
+function createPeerConnection() {
+  pc = new RTCPeerConnection(null);
+  pc.onicecandidate = onIceCandidate;
+  pc.onaddstream = onRemoteAddStream;
+  pc.onaddstream = onRemoteStreamRemoved;
+  trace('Created new peer connection.');
+}
+
+function onIceCandidate(event) {
+  if (event.candidate) {
+    sendMessage({
+      type: 'candidate',
+      label: event.candidate.sdpMLineIndex,
+      id: event.candidate.sdpMid,
+      candidate: event.candidate.candidate
+    });
+  } else {
+    trace('End of candidates.');
+  }
+}
+
+function onRemoteAddStream(event) {
+  trace('Remote stream added');
+  outAudio = URL.createObjectURL(event.stream);
+  remoteStream = event.stream;
+  waitForRemoteAudio();
+}
+
+function onRemoteStreamRemoved() {
+  trace('Remote stream removed.');
+}
+
+function waitForRemoteAudio() {
+  var audioTracks = remoteStream.getAudioTracks();
+  if (audioTracks.length === 0) {
+    hangup.disabled = false;
+  } else {
+    setTimeout(waitForRemoteAudio, 100);
+  }
+}
+
+// Message handlers
+
+//
+// Button callbacks
+//
 
 start.onclick = function start() {
   trace('Requesting local stream.');
   this.disabled = true;
   navigator.webkitGetUserMedia({audio: true}, gotStream,
-                               function() { console.log('Error.')});
+                               function() { console.log('Error.'); });
 };
 
 call.onclick = function() {
-  var audioTracks,
-      servers;
-
-  this.disabled = true;
-  hangup.disabled = false;
-
-  trace('Starting call');
-  if (localStream.audioTracks.length > 0) {
-    trace('Using audio device: ' + localStream.audioTracks[0].label);
-  }
-
-  pc1 = new webkitRTCPeerConnection(servers);
-  trace('Created first local peer connection object');
-  pc1.onicecandidate = iceCallback1;
-
-  pc2 = new webkitRTCPeerConnection(servers);
-  trace('Created second local peer connection object');
-  pc2.onicecandidate = iceCallback2;
-  pc2.onaddstream = gotRemoteStream;
-
-  pc1.addStream(localStream);
-  trace('Adding local stream to peer connection');
-
-  pc1.createOffer(gotDescription1);
-}
-
-function gotDescription1(desc) {
-  pc1.setLocalDescription(desc);
-  trace('Offer from pc1 \n' + desc.sdp);
-  pc2.setRemoteDescription(desc);
-  pc2.createAnswer(gotDescription2, null, sdpConstraints);
-}
-
-function gotDescription2(desc) {
-  pc2.setLocalDescription(desc);
-  trace('Answer from pc2: \n' + desc.sdp);
-  pc1.setRemoteDescription(desc);
-}
+  maybeStart(true);
+};
 
 hangup.onclick = function() {
   trace('Ending call');
-  pc1.close();
-  pc2.close();
-  pc1 = null;
-  pc2 = null;
+  pc.close();
+  pc = null;
   this.disabled = true;
   call.disabled = false;
-}
+};
 
-function gotRemoteStream(event){
-  audio2.src = webkitURL.createObjectURL(event.stream);
-  trace('Received remote stream');
-}
 
-function iceCallback1(event){
-  if (event.candidate) {
-    pc2.addIceCandidate(new RTCIceCandidate(event.candidate));
-    trace('Local ICE candidate: \n' + event.candidate.candidate);
-  }
-}
+//
+// Start
+//
 
-function iceCallback2(event){
-  if (event.candidate) {
-    pc1.addIceCandidate(new RTCIceCandidate(event.candidate));
-    trace('Remote ICE candidate: \n ' + event.candidate.candidate);
-  }
-}
+init();

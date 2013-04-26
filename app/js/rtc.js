@@ -1,5 +1,4 @@
-/* jshint globalstrict: true, browser: true */
-/* global console */
+/* global performance, setLocalAndSendMessage, stop, URL, maybeStart */
 'use strict';
 
 var inAudio = document.getElementById('in-audio'),
@@ -8,20 +7,40 @@ var inAudio = document.getElementById('in-audio'),
     call = document.getElementById('call'),
     hangup = document.getElementById('hangup'),
     pc,
+    userId,
+    pcConfig = {"iceServers": [{'url': 'stun:stun.l.google.com:19302'}]},
     localStream,
     remoteStream,
     started = false,
     sdpConstraints = {mandatory: {OfferToReceiveAudio: true}},
-    signalSocket = new WebSocket('ws://localhost:8090');
+    signalSocket = new WebSocket('ws://10.1.0.4:8090'),
+    getUserMedia;
+
+if (navigator.mozGetUserMedia) {
+  getUserMedia = navigator.mozGetUserMedia.bind(navigator);
+} else {
+  var RTCPeerConnection = webkitRTCPeerConnection;
+  getUserMedia = navigator.webkitGetUserMedia.bind(navigator);
+}
+
+function uuid4() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random()*16|0,
+        v = c === 'x' ? r : (r&0x3|0x8);
+    return v.toString(16);
+  });
+}
 
 function init() {
   call.disabled = true;
   hangup.disabled = true;
+  userId = uuid4();
+  setTimeout(function() { sendMessage(); }, 100);
 }
 
 function trace(text) {
   // This function is used for logging.
-  if (text[text.length - 1] == '\n') {
+  if (text[text.length - 1] === '\n') {
     text = text.substring(0, text.length - 1);
   }
   console.log((performance.now() / 1000).toFixed(3) + ": " + text);
@@ -32,31 +51,42 @@ function trace(text) {
 //
 
 function sendMessage(message) {
-  var msgString = JSON.stringify(message);
-  console.log('Sending message: ' + msgString);
-  signalSocket.send(msgString);
+  signalSocket.send(JSON.stringify({
+    from: userId,
+    body: message
+  }));
 }
 
 signalSocket.onmessage = function(event) {
-  var msg = JSON.parse(event.data),
-      candidate;
-  console.log('got message: ' + msg);
+  var envelope = JSON.parse(event.data),
+      msg = envelope.body;
+
+  // console.log('Printing envelope');
+  // console.log(envelope);
+
+  if (!msg) {
+    trace('Ignoring empty message from ' + envelope.from);
+    return;
+  }
 
   if (msg.type === 'offer') {
     if (!started) {
+      trace('Starting after offer received');
       maybeStart();
     }
     pc.setRemoteDescription(new RTCSessionDescription(msg));
     trace('Sending answer to peer.');
     pc.createAnswer(setLocalAndSendMessage, null, sdpConstraints);
   } else if (msg.type === 'answer' && started) {
-    pc.setRemoteDescription(new RTCSessionDescription(msg);
+    trace('Received answer');
+    pc.setRemoteDescription(new RTCSessionDescription(msg));
   } else if (msg.type === 'candidate' && started) {
     pc.addIceCandidate(new RTCIceCandidate({
       sdpMLineIndex: msg.label,
       candidate: msg.candidate
     }));
   } else if (msg.type === 'bye' && started) {
+    trace('Got message "bye"');
     setTimeout(function() { outAudio.src = ''; }, 500);
     stop();
   }
@@ -68,9 +98,9 @@ signalSocket.onmessage = function(event) {
 
 function gotStream(stream) {
   trace('Received local stream.');
-  inAudio.src = stream;
+  inAudio.src = URL.createObjectURL(stream);
   inAudio.play();
-  localStream = URL.createObjectURL(stream);
+  localStream = stream;
   call.disabled = false;
 }
 
@@ -88,15 +118,19 @@ function maybeStart(isInitiator) {
     if (isInitiator) {
       pc.createOffer(setLocalAndSendMessage, null, sdpConstraints);
     }
+  }
 }
 
 function stop() {
+  trace('Stopping connection and closing stream.');
   started = false;
   pc.close();
   pc = null;
+
 }
 
 function setLocalAndSendMessage(sessionDescription) {
+  trace('Setting local description');
   pc.setLocalDescription(sessionDescription);
   sendMessage(sessionDescription);
 }
@@ -104,10 +138,10 @@ function setLocalAndSendMessage(sessionDescription) {
 // Peer connection
 
 function createPeerConnection() {
-  pc = new RTCPeerConnection(null);
+  pc = new RTCPeerConnection(pcConfig);
   pc.onicecandidate = onIceCandidate;
   pc.onaddstream = onRemoteAddStream;
-  pc.onaddstream = onRemoteStreamRemoved;
+  pc.onremovestream = onRemoteStreamRemoved;
   trace('Created new peer connection.');
 }
 
@@ -126,9 +160,9 @@ function onIceCandidate(event) {
 
 function onRemoteAddStream(event) {
   trace('Remote stream added');
-  outAudio = URL.createObjectURL(event.stream);
+  outAudio.src = URL.createObjectURL(event.stream);
   remoteStream = event.stream;
-  waitForRemoteAudio();
+  //waitForRemoteAudio();
 }
 
 function onRemoteStreamRemoved() {
@@ -137,7 +171,9 @@ function onRemoteStreamRemoved() {
 
 function waitForRemoteAudio() {
   var audioTracks = remoteStream.getAudioTracks();
-  if (audioTracks.length === 0) {
+  console.log('audioTracks length: ' + audioTracks.length);
+  console.log('audioTracks current time: ' + audioTracks.currentTime);
+  if (audioTracks.length === 0 || audioTracks.currentTime > 0) {
     hangup.disabled = false;
   } else {
     setTimeout(waitForRemoteAudio, 100);
@@ -147,14 +183,18 @@ function waitForRemoteAudio() {
 // Message handlers
 
 //
-// Button callbacks
+// DOM Callbacks
 //
+
+window.onbeforeunload = function() {
+  sendMessage({type: 'bye'});
+};
 
 start.onclick = function start() {
   trace('Requesting local stream.');
   this.disabled = true;
-  navigator.webkitGetUserMedia({audio: true}, gotStream,
-                               function() { console.log('Error.'); });
+  getUserMedia({audio: true}, gotStream,
+               function() { console.log('Error.'); });
 };
 
 call.onclick = function() {
@@ -163,8 +203,7 @@ call.onclick = function() {
 
 hangup.onclick = function() {
   trace('Ending call');
-  pc.close();
-  pc = null;
+  stop();
   this.disabled = true;
   call.disabled = false;
 };

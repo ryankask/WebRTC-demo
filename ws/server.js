@@ -142,8 +142,8 @@ wsServer.on('connect', function(connection) {
   });
 });
 
-if (DEBUG) {
-  setInterval(function() {
-    console.log('Number of active connections: ' + connections.length);
-  }, 100000);
-}
+// if (DEBUG) {
+//   setInterval(function() {
+//     console.log('Number of active connections: ' + connections.length);
+//   }, 100000);
+// }

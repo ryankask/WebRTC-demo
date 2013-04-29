@@ -12,7 +12,8 @@ var audio = document.getElementsByTagName('audio')[0],
     remoteStream,
     started = false,
     sdpConstraints = {mandatory: {OfferToReceiveAudio: true}},
-    signalSocket = new WebSocket('ws://10.1.0.4:8090'),
+    signalServerAddress = '127.0.0.1:8090',
+    signalSocket = new WebSocket('ws://' + signalServerAddress),
     getUserMedia,
     RTCPeerConnection;
 

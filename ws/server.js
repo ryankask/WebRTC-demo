@@ -6,6 +6,7 @@ var WebSocketServer = require('websocket').server,
     http = require('http'),
     httpServer,
     wsServer,
+    host = '127.0.0.1',
     port = 8090,
     connections = [],
     DEBUG;
@@ -40,8 +41,8 @@ httpServer = http.createServer(function(request, response) {
   response.end();
 });
 
-httpServer.listen(port, '10.1.0.4', function() {
-  debug((new Date()) + ' Server is listening on port ' + port);
+httpServer.listen(port, host, function() {
+  debug((new Date()) + ' Server is listening on port ' + host + ':' + port + '/');
 });
 
 wsServer = new WebSocketServer({

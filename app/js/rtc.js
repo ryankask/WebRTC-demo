@@ -18,6 +18,9 @@ var audio = document.getElementsByTagName('audio')[0],
 
 if (navigator.mozGetUserMedia) {
   getUserMedia = navigator.mozGetUserMedia.bind(navigator);
+  RTCPeerConnection = mozRTCPeerConnection;
+  RTCIceCandidate = mozRTCIceCandidate;
+  RTCSessionDescription = mozRTCSessionDescription;
 } else {
   RTCPeerConnection = webkitRTCPeerConnection;
   getUserMedia = navigator.webkitGetUserMedia.bind(navigator);

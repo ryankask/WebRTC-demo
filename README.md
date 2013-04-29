@@ -28,7 +28,7 @@ WebSockets.
    [WebSocket-Node](https://github.com/Worlize/WebSocket-Node) for the
    server and at present the server supports two users at once.
 
-2. One of two users intiates a call by pressing a button (say Alice)
+2. One of two users initiates a call by pressing a button (say Alice)
 
 3. Alice's `start` function is called is with initiator set to true
 

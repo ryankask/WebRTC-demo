@@ -109,7 +109,7 @@ wsServer = new WebSocketServer({
 });
 
 wsServer.on('connect', function(connection) {
-  debug((new Date()) + ' Connection accepted - Protocol Version ' +
+  debug('WS: ' + new Date() + ' Connection accepted - Protocol Version ' +
         connection.webSocketVersion);
 
   connections.push(connection);
@@ -119,10 +119,10 @@ wsServer.on('connect', function(connection) {
 
     if (message.type === 'utf8') {
       envelope = JSON.parse(message.utf8Data);
-      debug('Received envelope from ' + envelope.from);
+      debug('WS: Received envelope from ' + envelope.from);
 
       if (!envelope.from) {
-        debug('Ignoring message without "from" key');
+        debug('WS: Ignoring message without "from" key');
         return;
       }
 
@@ -132,12 +132,13 @@ wsServer.on('connect', function(connection) {
       }
     }
     else if (message.type === 'binary') {
-      debug('received binary message; doing nothing.');
+      debug('WS: received binary message; doing nothing.');
     }
   });
 
   connection.on('close', function(reasonCode, description) {
-    debug(new Date() + ' Peer ' + connection.remoteAddress + ' disconnected.');
+    debug('WS: ' + new Date() + ' Peer ' + connection.remoteAddress +
+          ' disconnected.');
     connections.splice(connections.indexOf(connection), 1);
   });
 });

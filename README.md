@@ -5,23 +5,21 @@ WebSockets.
 
 ## Running
 
-1. Change the host and ports in ws/server.js and app/js/rtc.js to
-   whatever will work in your network.
+1. Install WebSocket-Node: `npm install websocket`
 
-2. Install WebSocket-Node: `npm install websocket`
-
-2. Start the web server `node ws/server.js`
+2. Start the web server `node ws/server.js [host][:port]` (defaults to
+   `127.0.0.1:8090`)
 
 3. Open a browser and navigate to http://host:port/app/index.html
    (you must serve the cloned repository from a web server)
 
 4. Open another window and do the same.
 
-4. Press call from one of the windows.
+5. Press call from one of the windows.
 
-5. Talk to yourself or a colleague.
+6. Talk to yourself or a colleague.
 
-6. Hang up
+7. Hang up
 
 ## Flow
 

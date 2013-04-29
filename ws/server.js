@@ -6,6 +6,7 @@ var WebSocketServer = require('websocket').server,
     http = require('http'),
     httpServer,
     wsServer,
+    hostConfig,
     host = '127.0.0.1',
     port = 8090,
     connections = [],
@@ -33,6 +34,12 @@ function findOtherConnection(currentConnection) {
       return connections[i];
     }
   }
+}
+
+if (process.argv.length === 3) {
+  var hostConfig = process.argv[2].split(':');
+  host = hostConfig[0];
+  port = hostConfig[1] || port;
 }
 
 httpServer = http.createServer(function(request, response) {

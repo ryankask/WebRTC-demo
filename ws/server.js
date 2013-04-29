@@ -8,33 +8,21 @@ var WebSocketServer = require('websocket').server,
     wsServer,
     port = 8090,
     connections = [],
-    firstUser,
-    secondUser,
     DEBUG;
 
 DEBUG = true;
 
-httpServer = http.createServer(function(request, response) {
+function debug(message) {
   if (DEBUG) {
-    console.log((new Date()) + ' Received request for ' + request.url);
+    console.log(message);
   }
-  response.writeHead(404);
-  response.end();
-});
+}
 
-httpServer.listen(port, '10.1.0.4', function() {
-    console.log((new Date()) + ' Server is listening on port ' + port);
-});
-
-wsServer = new WebSocketServer({
-  httpServer: httpServer,
-  autoAcceptConnections: true
-  // maxReceivedFrameSize: 64*1024*1024,   // 64MiB
-  // maxReceivedMessageSize: 64*1024*1024, // 64MiB
-  // fragmentOutgoingMessages: false,
-  // keepalive: false,
-  // disableNagleAlgorithm: false
-});
+function sendCallback(error) {
+  if (error) {
+    debug('send() error: ' + error);
+  }
+}
 
 function findOtherConnection(currentConnection) {
   var i;
@@ -46,64 +34,57 @@ function findOtherConnection(currentConnection) {
   }
 }
 
+httpServer = http.createServer(function(request, response) {
+  debug((new Date()) + ' Received request for ' + request.url);
+  response.writeHead(404);
+  response.end();
+});
+
+httpServer.listen(port, '10.1.0.4', function() {
+  debug((new Date()) + ' Server is listening on port ' + port);
+});
+
+wsServer = new WebSocketServer({
+  httpServer: httpServer,
+  autoAcceptConnections: true
+});
+
 wsServer.on('connect', function(connection) {
-  if (DEBUG) {
-    console.log((new Date()) + ' Connection accepted' +
-                ' - Protocol Version ' + connection.webSocketVersion);
-  }
+  debug((new Date()) + ' Connection accepted - Protocol Version ' +
+        connection.webSocketVersion);
 
   connections.push(connection);
 
-  function sendCallback(error) {
-    if (error) {
-      console.error('send() error: ' + error);
-    }
-  }
-
   connection.on('message', function(message) {
-    var envelope, otherConnection, returnEnvelope = {};
+    var envelope, otherConnection;
 
     if (message.type === 'utf8') {
       envelope = JSON.parse(message.utf8Data);
-      console.log('Received envelope from ' + envelope.from);
+      debug('Received envelope from ' + envelope.from);
 
       if (!envelope.from) {
-        console.log('Ignoring message without "from" key');
-        connection.sendUTF(JSON.stringify({}), sendCallback);
+        debug('Ignoring message without "from" key');
         return;
       }
-      if (!firstUser) {
-        console.log('Setting first user to ' + envelope.from);
-        firstUser = envelope.from;
-      } else if (!secondUser) {
-        console.log('Setting second user to ' + envelope.from);
-        secondUser = envelope.from;
-      }
 
-      returnEnvelope.from = envelope.from;
-      returnEnvelope.body = envelope.body;
       otherConnection = findOtherConnection(connection);
-      if (otherConnection && returnEnvelope.body) {
-        otherConnection.sendUTF(JSON.stringify(returnEnvelope), sendCallback);
-      } else {
-        console.log('not sending response: no other connections');
+      if (otherConnection && envelope.body) {
+        otherConnection.sendUTF(message.utf8Data, sendCallback);
       }
     }
     else if (message.type === 'binary') {
-      console.log('received binary message; doing nothing.');
-      connection.sendBytes([], sendCallback);
+      debug('received binary message; doing nothing.');
     }
   });
 
   connection.on('close', function(reasonCode, description) {
-    if (DEBUG) {
-      console.log((new Date()) + ' Peer ' + connection.remoteAddress +
-                  ' disconnected.');
-    }
+    debug(new Date() + ' Peer ' + connection.remoteAddress + ' disconnected.');
     connections.splice(connections.indexOf(connection), 1);
   });
 });
 
-setInterval(function() {
-  console.log('Number of active connections: ' + connections.length);
-}, 10000);
+if (DEBUG) {
+  setInterval(function() {
+    console.log('Number of active connections: ' + connections.length);
+  }, 100000);
+}

@@ -3,20 +3,13 @@
   <head>
     <meta charset="utf-8">
     <title>WebRTC Test</title>
-    <link rel="stylesheet" type="text/css" href="./css/style.css">
+    <!-- <link rel="stylesheet" type="text/css" href="./css/style.css"> -->
   </head>
   <body>
     <h1>WebRTC Test</h1>
-    <div role="main">
-      <h2>Audio Stream 1</h2>
-      <audio id="in-audio" autoplay muted="false"></audio>
-      <audio id="out-audio" autoplay muted="true"></audio>
-      <div class="controls">
-        <button id="start">Start</button>
-        <button id="call">Call</button>
-        <button id="hangup">Hang Up</button>
-      </div>
-    </div>
+    <audio autoplay></audio>
+    <button id="call">Call</button>
+    <button id="hangup">Hang Up</button>
     <script src="./js/rtc.js"></script>
   </body>
 </html>

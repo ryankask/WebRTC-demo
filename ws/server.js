@@ -18,8 +18,6 @@ var WebSocketServer = require('websocket').server,
     connections = [],
     DEBUG;
 
-console.log('cwd: ' + workingDir);
-
 DEBUG = true;
 contentTypes = {
   html: 'text/html',
